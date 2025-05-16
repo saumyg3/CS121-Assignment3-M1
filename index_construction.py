@@ -2,7 +2,7 @@ import os
 import re
 import json
 from bs4 import BeautifulSoup
-from collections import Counter
+from collections import defaultdict, Counter
 
 # STOPWORDS = {
 #     'a', 'about', 'above', 'after', 'again', 'against', 'all', 'am', 'an', 'and', 'any', 'are', 'aren\'t',
@@ -39,29 +39,33 @@ def extract_tokens(resp) -> list:
     # return tokens
     return re.findall(r"\w+", text.lower())
 
-def build_index(directory):
-    index = {}
-    for root, dirs, files in os.walk(directory):
-        for filename in sorted(files):
-            filepath = os.path.join(directory, filename)
-            with open(filepath, 'r', encoding='utf-8') as file:
-                soup = BeautifulSoup(file, 'html.parser')
-                text = soup.get_text()
-            
-            tokens = tokenize(text)
-            unique_tokens = set(tokens)
-            tf_counts = Counter(tokens)
-            
-            for token in unique_tokens:
-                posting = {
-                    'doc_id': filename,
-                    'tf': tf_counts[token]
-                }
-                if token not in index:
-                    index[token] = []  # create empty list if token not present
-                index[token].append(posting)
-        
-    return index
+def build_index(corpus_dir: str) -> tuple[dict, int]:
+    index = defaultdict(list)
+    doc_count = 0
+    for root, _, files in os.walk(corpus_dir):
+        for fname in sorted(files):
+            if not fname.lower().endswith(".json"):
+                continue
+            fullpath = os.path.join(root, fname)
+            with open(fullpath, "r", encoding="utf-8") as f:
+                data = json.load(f)
+
+            url   = data.get("url", "").strip()
+            html  = data.get("content", "")
+            if not url:
+                continue
+
+            doc_count += 1
+            tokens = extract_tokens(html)
+            tf     = Counter(tokens)
+
+            for term, freq in tf.items():
+                index[term].append({
+                    "doc_id": url,
+                    "tf": freq
+                })
+
+    return index, doc_count
 
 def save_index(index, filepath='inverted_index.json'):
     with open(filepath, 'w', encoding='utf-8') as f:
