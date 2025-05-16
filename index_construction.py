@@ -21,7 +21,7 @@ STOPWORDS = {
 common_w = {}
 
 def extract_tokens(resp) -> list:
-    global longest_url, longest_wcount
+    
     tokens = []
     if resp.status != 200 or not hasattr(resp.raw_response, 'content'):
         return tokens
@@ -31,16 +31,7 @@ def extract_tokens(resp) -> list:
         if word not in STOPWORDS:
             tokens.append(word)
 
-    for y in tokens:
-        if y in common_w:
-            common_w[y] +=1
-        else:
-            common_w[y] = 1
-
-    count = len(tokens)
-    if count > longest_wcount:
-        longest_url = resp.raw_response.url
-        longest_wcount = count
+   
             
     return tokens
 
