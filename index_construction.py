@@ -57,3 +57,22 @@ def build_index(directory):
             index[token].append(posting)
     
     return index
+
+def save_index(index, filepath='inverted_index.json'):
+    with open(filepath, 'w', encoding='utf-8') as f:
+        json.dump(index, f, indent=2)
+
+def compute_index_size(filepath):
+    return os.path.getsize(filepath) / 1024
+
+if __name__ == "__main__":
+    data_dir = 'folder path to be added'
+    index = build_index(data_dir)
+    save_index(index)
+    num_docs = len(set(posting['doc_id'] for postings in index.values() for posting in postings))
+    num_tokens = len(index)
+    size_kb = compute_index_size('inverted_index.json')
+    print(f"Number of Indexed Documents     : {num_docs}")
+    print(f"Number of Unique Tokens         : {num_tokens}")
+    print(f"Index Size on Disk    : {size_kb:.2f} KB")
+
