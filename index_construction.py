@@ -43,3 +43,26 @@ def extract_tokens(resp) -> list:
         longest_wcount = count
             
     return tokens
+
+def build_index(directory):
+    index = {}
+    for filename in sorted(os.listdir(directory)):
+        filepath = os.path.join(directory, filename)
+        with open(filepath, 'r', encoding='utf-8') as file:
+            soup = BeautifulSoup(file, 'html.parser')
+            text = soup.get_text()
+        
+        tokens = tokenize(text)
+        unique_tokens = set(tokens)
+        tf_counts = Counter(tokens)
+        
+        for token in unique_tokens:
+            posting = {
+                'doc_id': filename,
+                'tf': tf_counts[token]
+            }
+            if token not in index:
+                index[token] = []  # create empty list if token not present
+            index[token].append(posting)
+    
+    return index
