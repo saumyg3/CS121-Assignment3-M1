@@ -70,13 +70,16 @@ def compute_index_size(filepath):
     return os.path.getsize(filepath) / 1024
 
 if __name__ == "__main__":
-    data_dir = 'folder path to be added'
-    index = build_index(data_dir)
-    save_index(index)
-    num_docs = len(set(posting['doc_id'] for postings in index.values() for posting in postings))
+    if len(sys.argv) != 3:
+        print("Usage: python indexer.py <corpus_dir> <output_index.json>")
+        sys.exit(1)
+    data_dir   = sys.argv[1]
+    out_index  = sys.argv[2]
+    index, num_docs = build_index(data_dir)
+    print(f"1) Number of documents indexed   : {num_docs}")
+    save_index(index, out_index)
     num_tokens = len(index)
-    size_kb = compute_index_size('inverted_index.json')
-    print(f"Number of Indexed Documents     : {num_docs}")
-    print(f"Number of Unique Tokens         : {num_tokens}")
-    print(f"Index Size on Disk    : {size_kb:.2f} KB")
+    print(f"2) Number of unique tokens       : {num_tokens}")
+    size_kb = compute_index_size(out_index)
+    print(f"3) Index size on disk            : {size_kb:.2f} KB")
 
