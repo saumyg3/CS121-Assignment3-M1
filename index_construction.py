@@ -1,7 +1,9 @@
 import os
 import re
 import json
+import sys
 from bs4 import BeautifulSoup
+from nltk.stem import PorterStemmer
 from collections import defaultdict, Counter
 
 # STOPWORDS = {
@@ -23,21 +25,14 @@ from collections import defaultdict, Counter
 
 # common_w = {}
 
-def extract_tokens(resp) -> list:
+def extract_tokens(text) -> list:
+    unprocessed_tokens = re.findall(r"\w+", text.lower())
+    filtered = [token for token in unprocessed_tokens if token.isalnum() and token.isascii()]
+    porter_stemmer = PorterStemmer()
     
-    # tokens = []
-    # if resp.status != 200 or not hasattr(resp.raw_response, 'content'):
-    #     return tokens
-    soup = BeautifulSoup(resp.raw_response.content, 'lxml')
-    text = ' '.join(soup.stripped_strings)
-    # for word in re.findall(r'\w+', text.lower()):
-    #     if word not in STOPWORDS:
-    #         tokens.append(word)
+    stemmed_words = [porter_stemmer.stem(token) for token in filtered]
+    return stemmed_words    
 
-   
-            
-    # return tokens
-    return re.findall(r"\w+", text.lower())
 
 def build_index(corpus_dir: str) -> tuple[dict, int]:
     index = defaultdict(list)
@@ -47,11 +42,12 @@ def build_index(corpus_dir: str) -> tuple[dict, int]:
             if not fname.lower().endswith(".json"):
                 continue
             fullpath = os.path.join(root, fname)
+            print(fullpath)
             with open(fullpath, "r", encoding="utf-8") as f:
                 data = json.load(f)
 
             url   = data.get("url", "").strip()
-            html  = data.get("content", "")
+            html  = data.get("content")
             if not url:
                 continue
 
@@ -87,4 +83,7 @@ if __name__ == "__main__":
     print(f"2) Number of unique tokens       : {num_tokens}")
     size_kb = compute_index_size(out_index)
     print(f"3) Index size on disk            : {size_kb:.2f} KB")
-
+    with open("results.txt", "w") as f:
+        f.write(f"1) Number of documents indexed   : {num_docs}\n")
+        f.write(f"2) Number of unique tokens       : {num_tokens}\n")
+        f.write(f"3) Index size on disk            : {size_kb:.2f} KB\n")
