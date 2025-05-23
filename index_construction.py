@@ -109,7 +109,7 @@ if __name__ == "__main__":
     
     term_ids, doc_ids, index = build_index(data_dir)
     
-    save_json(term_ids, "terms.dict")
-    save_json(invert_map(doc_ids), "docs.dict")
+    save_json(term_ids, "terms.json")
+    save_json(invert_map(doc_ids), "docs.json")
     save_json(index, "index.json")
 

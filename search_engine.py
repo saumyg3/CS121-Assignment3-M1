@@ -1,15 +1,17 @@
 import json
-import sys
+import re
 from nltk.stem import PorterStemmer
 
 def get_term_id(input):
     out = set()
     
-    tokens = input.split()
+    tokens = re.findall(r"\w+", input.lower())
+    filtered = [token for token in tokens if token.isalnum() and token.isascii()]
+
     porter_stemmer = PorterStemmer()
-    stemmed_tokens = [porter_stemmer.stem(token) for token in tokens]
+    stemmed_tokens = [porter_stemmer.stem(token) for token in filtered]
     
-    with open("./terms.dict", "r", encoding="utf-8") as f:
+    with open("./terms.json", "r", encoding="utf-8") as f:
         terms = json.load(f)
         
     for token in stemmed_tokens:
@@ -49,7 +51,7 @@ def binary_and(inputs):
             tf_2 = list2[j][1]
 
             if doc_id_1 == doc_id_2:
-                new_result.append([doc_id_1, tf_1 + tf_2])  # or [doc1, tf1, tf2] if needed
+                new_result.append([doc_id_1, tf_1 + tf_2]) 
                 i += 1
                 j += 1
             elif doc_id_1 < doc_id_2:
@@ -57,17 +59,20 @@ def binary_and(inputs):
             else:
                 j += 1
 
-        result = new_result  # Continue with result from this round
+        result = new_result  
 
         if not result:
-            break  # early exit if nothing in common
+            break 
 
     return result
         
 def get_doc_urls_from_ids(ids):
     out = []
+    
+    if len(ids) == 0:
+        return []
 
-    with open("./docs.dict", "r", encoding="utf-8") as f:
+    with open("./docs.json", "r", encoding="utf-8") as f:
         docs = json.load(f)
         
     ids.sort(key=lambda x: x[1], reverse=True)
