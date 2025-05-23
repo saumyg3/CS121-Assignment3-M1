@@ -29,20 +29,24 @@ def extract_tokens(text) -> list:
     unprocessed_tokens = re.findall(r"\w+", text.lower())
     filtered = [token for token in unprocessed_tokens if token.isalnum() and token.isascii()]
     porter_stemmer = PorterStemmer()
-    
     stemmed_words = [porter_stemmer.stem(token) for token in filtered]
     return stemmed_words    
 
 
 def build_index(corpus_dir: str) -> tuple[dict, int]:
     index = defaultdict(list)
-    doc_count = 0
+    term_ids = {}
+    doc_ids = {}
+    term_id = 0
+    doc_id = 0
+    
     for root, _, files in os.walk(corpus_dir):
         for fname in sorted(files):
             if not fname.lower().endswith(".json"):
                 continue
             fullpath = os.path.join(root, fname)
-            print(fullpath)
+            print(fullpath) # debug
+            
             with open(fullpath, "r", encoding="utf-8") as f:
                 data = json.load(f)
 
@@ -50,25 +54,51 @@ def build_index(corpus_dir: str) -> tuple[dict, int]:
             html  = data.get("content")
             if not url:
                 continue
+            
+            content = parse_content(html)
+            
+            if not content:
+                continue
+            
+            if url not in doc_ids:
+                doc_ids[url] = doc_id
+                doc_id += 1
 
-            doc_count += 1
-            tokens = extract_tokens(html)
-            tf     = Counter(tokens)
+            tokens = extract_tokens(content.get_text())
+            tf = Counter(tokens)
 
             for term, freq in tf.items():
-                index[term].append({
-                    "doc_id": url,
-                    "tf": freq
-                })
+                if term not in term_ids:
+                    term_ids[term] = term_id
+                    term_id += 1
+                tid = term_ids[term]
+                index[tid].append([doc_ids[url], freq])
+                
+    return term_ids, doc_ids, index
 
-    return index, doc_count
-
-def save_index(index, filepath='inverted_index.json'):
-    with open(filepath, 'w', encoding='utf-8') as f:
-        json.dump(index, f, indent=2)
+def save_json(obj, filename):
+    with open(filename, 'w', encoding='utf-8') as f:
+        json.dump(obj, f)
 
 def compute_index_size(filepath):
     return os.path.getsize(filepath) / 1024
+
+def parse_content(content):
+    try:
+        soup = BeautifulSoup(content, 'html.parser')
+        return soup
+    except:
+        try:
+            soup = BeautifulSoup(content, 'lxml')
+            return soup
+        except:
+            return None
+    
+def invert_map(in_map):
+    inverted_map = {}
+    for j, k in in_map.items():
+        inverted_map[k] = j
+    return inverted_map
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
@@ -76,14 +106,10 @@ if __name__ == "__main__":
         sys.exit(1)
     data_dir   = sys.argv[1]
     out_index  = sys.argv[2]
-    index, num_docs = build_index(data_dir)
-    print(f"1) Number of documents indexed   : {num_docs}")
-    save_index(index, out_index)
-    num_tokens = len(index)
-    print(f"2) Number of unique tokens       : {num_tokens}")
-    size_kb = compute_index_size(out_index)
-    print(f"3) Index size on disk            : {size_kb:.2f} KB")
-    with open("results.txt", "w") as f:
-        f.write(f"1) Number of documents indexed   : {num_docs}\n")
-        f.write(f"2) Number of unique tokens       : {num_tokens}\n")
-        f.write(f"3) Index size on disk            : {size_kb:.2f} KB\n")
+    
+    term_ids, doc_ids, index = build_index(data_dir)
+    
+    save_json(term_ids, "terms.dict")
+    save_json(invert_map(doc_ids), "docs.dict")
+    save_json(index, "index.json")
+
