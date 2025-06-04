@@ -1,8 +1,12 @@
 import json
 import re
+import time
+import mmap
+# import psutil # used to check memory usage
+import os
 from nltk.stem import PorterStemmer
 
-def get_term_id(input):
+def get_term_id(input, terms_file):
     out = set()
     
     tokens = re.findall(r"\w+", input.lower())
@@ -11,22 +15,28 @@ def get_term_id(input):
     porter_stemmer = PorterStemmer()
     stemmed_tokens = [porter_stemmer.stem(token) for token in filtered]
     
-    with open("./terms.json", "r", encoding="utf-8") as f:
-        terms = json.load(f)
         
     for token in stemmed_tokens:
-        out.add(terms.get(token))
+        tid = (terms_file.get(token))
+        if tid is not None:
+            out.add(tid)
         
     return out
     
-def get_doc_id_from_term_ids(ids):
+def get_doc_id_from_term_ids(term_ids, toc, mm):
     out = []
-    
-    with open("./index.json", "r", encoding="utf-8") as f:
-        index = json.load(f)
+
+    for tid in term_ids:
+        if tid is None:
+            continue
         
-    for id in ids:
-        out.append(index.get(str(id)))
+    offset = toc[str(tid)]
+    mm.seek(offset)
+    line = mm.readline().decode("utf-8").strip()
+
+    _, postings_str = line.split(":", 1)
+    postings = [list(map(int, pair.split(","))) for pair in postings_str.strip().split()]
+    out.append(postings)
         
     return out
           
@@ -83,15 +93,43 @@ def get_doc_urls_from_ids(ids):
         
     return out
 
+def get_memory_usage_mb():
+    process = psutil.Process(os.getpid())
+    return process.memory_info().rss / 1024**2  # in MB
+
 if __name__ == "__main__":
+    with open("mmap.json", "r") as f:
+        toc = json.load(f)
+        
+    with open("./terms.json", "r", encoding="utf-8") as f:
+        terms = json.load(f)
+    
+    index_file = open("index.txt", "r+b")
+    index_mmap = mmap.mmap(index_file.fileno(), 0, access=mmap.ACCESS_READ)
+    
     print("Search Engine:")
     
     while True:
         search = input("Search term: ")
-        ids = get_term_id(search)
-        doc_ids = get_doc_id_from_term_ids(ids)
+        start = time.time()
+        ids = get_term_id(search, terms)
+        t1 = time.time()
+        doc_ids = get_doc_id_from_term_ids(ids, toc, index_mmap)
+        t2 = time.time()
         intersect = binary_and(doc_ids)
+        t3 = time.time()
         doc_urls = get_doc_urls_from_ids(intersect)
+        t4 = time.time()
+
+        print("\nResults:")
         for url in doc_urls:
             print(url)
-    
+
+        print("Benchmark Timing (in seconds):")
+        print(f"get_term_id:             {t1 - start:.4f}")
+        print(f"get_doc_id_from_term_ids:{t2 - t1:.4f}")
+        print(f"binary_and:              {t3 - t2:.4f}")
+        print(f"get_doc_urls_from_ids:   {t4 - t3:.4f}")
+        print(f"Total:                   {t4 - start:.4f}\n")
+        # process = psutil.Process(os.getpid())
+        # print(f"Memory usage: {get_memory_usage_mb():.2f} MB")

@@ -6,25 +6,6 @@ from bs4 import BeautifulSoup
 from nltk.stem import PorterStemmer
 from collections import defaultdict, Counter
 
-# STOPWORDS = {
-#     'a', 'about', 'above', 'after', 'again', 'against', 'all', 'am', 'an', 'and', 'any', 'are', 'aren\'t',
-#     'as', 'at', 'be', 'because', 'been', 'before', 'being', 'below', 'between', 'both', 'but', 'by',
-#     'can\'t', 'cannot', 'could', 'couldn\'t', 'did', 'didn\'t', 'do', 'does', 'doesn\'t', 'doing', 'don\'t',
-#     'down', 'during', 'each', 'few', 'for', 'from', 'further', 'had', 'hadn\'t', 'has', 'hasn\'t', 'have', 'haven\'t',
-#     'having', 'he', 'he\'d', 'he\'ll', 'he\'s', 'her', 'here', 'here\'s', 'hers', 'herself', 'him', 'himself', 'his',
-#     'how', 'how\'s', 'i', 'i\'d', 'i\'ll', 'i\'m', 'i\'ve', 'if', 'in', 'into', 'is', 'isn\'t', 'it', 'it\'s',
-#     'its', 'itself', 'let\'s', 'me', 'more', 'most', 'mustn\'t', 'my', 'myself', 'no', 'nor', 'not', 'of', 'off',
-#     'on', 'once', 'only', 'or', 'other', 'ought', 'our', 'ours', 'ourselves', 'out', 'over', 'own', 'same', 'shan\'t',
-#     'she', 'she\'d', 'she\'ll', 'she\'s', 'should', 'shouldn\'t', 'so', 'some', 'such', 'than', 'that', 'that\'s',
-#     'the', 'their', 'theirs', 'them', 'themselves', 'then', 'there', 'there\'s', 'these', 'they', 'they\'d', 'they\'ll',
-#     'they\'re', 'they\'ve', 'this', 'those', 'through', 'to', 'too', 'under', 'until', 'up', 'very', 'was', 'wasn\'t',
-#     'we', 'we\'d', 'we\'ll', 'we\'re', 'we\'ve', 'were', 'weren\'t', 'what', 'what\'s', 'when', 'when\'s', 'where',
-#     'where\'s', 'which', 'while', 'who', 'who\'s', 'whom', 'why', 'why\'s', 'with', 'won\'t', 'would', 'wouldn\'t',
-#     'you', 'you\'d', 'you\'ll', 'you\'re', 'you\'ve', 'your', 'yours', 'yourself', 'yourselves'
-# }
-
-# common_w = {}
-
 def extract_tokens(text) -> list:
     unprocessed_tokens = re.findall(r"\w+", text.lower())
     filtered = [token for token in unprocessed_tokens if token.isalnum() and token.isascii()]
@@ -44,9 +25,10 @@ def build_index(corpus_dir: str) -> tuple[dict, int]:
         for fname in sorted(files):
             if not fname.lower().endswith(".json"):
                 continue
+            
             fullpath = os.path.join(root, fname)
             print(fullpath) # debug
-            
+    
             with open(fullpath, "r", encoding="utf-8") as f:
                 data = json.load(f)
 
@@ -76,6 +58,18 @@ def build_index(corpus_dir: str) -> tuple[dict, int]:
                 
     return term_ids, doc_ids, index
 
+def save_index(obj, filename):
+    mmap = {}
+    
+    with open(filename, 'w', encoding='utf-8') as f:
+        for term_id in sorted(obj.keys()):
+            mmap[term_id] = f.tell()
+            postings = " ".join(f"{doc_id},{tf}" for doc_id, tf in index[term_id])
+            f.write(f"{term_id} : {postings}\n")
+            
+    with open("mmap.json", "w") as f2:
+        json.dump(mmap, f2)
+
 def save_json(obj, filename):
     with open(filename, 'w', encoding='utf-8') as f:
         json.dump(obj, f)
@@ -101,15 +95,14 @@ def invert_map(in_map):
     return inverted_map
 
 if __name__ == "__main__":
-    if len(sys.argv) != 3:
-        print("Usage: python indexer.py <corpus_dir> <output_index.json>")
+    if len(sys.argv) != 2:
+        print("Usage: python indexer.py <corpus_dir>")
         sys.exit(1)
     data_dir   = sys.argv[1]
-    out_index  = sys.argv[2]
     
     term_ids, doc_ids, index = build_index(data_dir)
     
     save_json(term_ids, "terms.json")
     save_json(invert_map(doc_ids), "docs.json")
-    save_json(index, "index.json")
+    save_index(index, "index.txt")
 
